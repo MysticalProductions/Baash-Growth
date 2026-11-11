@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 10 10 15;
+    --surface: 18 18 26;
+    --card: 26 26 46;
+    --border: 42 42 62;
+    --primary: 123 53 232;
+    --secondary: 247 37 133;
+    --muted-foreground: 160 160 184;
+  }
+
+  * {
+    border-color: #2A2A3E;
+  }
+
+  body {
+    background-color: #0A0A0F;
+    color: #FFFFFF;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* Custom BAASH Scrollbars matching baash.in */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #12121A;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #2A2A3E;
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #7B35E8;
+  }
+}
+
+@layer utilities {
+  .baash-card {
+    background-color: #1A1A2E;
+    border: 1px solid #2A2A3E;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  }
+
+  .baash-card-interactive {
+    background-color: #1A1A2E;
+    border: 1px solid #2A2A3E;
+    border-radius: 1rem;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .baash-card-interactive:hover {
+    border-color: #7B35E8;
+    box-shadow: 0 0 25px -5px rgba(123, 53, 232, 0.25);
+    transform: translateY(-2px);
+  }
+
+  .baash-gradient-text {
+    background: linear-gradient(135deg, #F72585 0%, #7B35E8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .baash-btn-primary {
+    background-color: #7B35E8;
+    color: #FFFFFF;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    transition: all 0.15s ease-in-out;
+  }
+
+  .baash-btn-primary:hover {
+    background-color: #5B21B6;
+    box-shadow: 0 0 20px -3px rgba(123, 53, 232, 0.5);
+  }
+
+  .baash-btn-secondary {
+    background: linear-gradient(135deg, #F72585 0%, #7B35E8 100%);
+    color: #FFFFFF;
+    font-weight: 600;
+    border-radius: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    transition: all 0.15s ease-in-out;
+  }
+
+  .baash-btn-secondary:hover {
+    opacity: 0.92;
+    box-shadow: 0 0 20px -3px rgba(247, 37, 133, 0.5);
+  }
+
+  .baash-btn-outline {
+    background-color: transparent;
+    border: 1px solid #2A2A3E;
+    color: #FFFFFF;
+    font-weight: 500;
+    border-radius: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    transition: all 0.15s ease-in-out;
+  }
+
+  .baash-btn-outline:hover {
+    border-color: #7B35E8;
+    background-color: rgba(123, 53, 232, 0.1);
+  }
+}

@@ -1,0 +1,857 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum VendorUserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum CustomerSource {
+  MANUAL_ENTRY
+  CSV_IMPORT
+  WEBSITE
+  BOOKING
+  EVENT_REGISTRATION
+  OTHER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum ConsentChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+enum ConsentStatus {
+  OPTED_IN
+  OPTED_OUT
+  UNKNOWN
+}
+
+enum TemplateChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+enum WhatsAppCategory {
+  MARKETING
+  UTILITY
+  AUTHENTICATION
+}
+
+enum MetaApprovalStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  READ
+}
+
+enum WalletChannel {
+  SMS
+  WHATSAPP
+  EMAIL
+}
+
+enum PackageStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TransactionType {
+  PURCHASE
+  CAMPAIGN_RESERVATION
+  CAMPAIGN_CAPTURE
+  RESERVATION_RELEASE
+  REFUND
+  ADMIN_ADJUSTMENT
+}
+
+enum TransactionDirection {
+  CREDIT
+  DEBIT
+}
+
+enum PurchaseStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  SIMULATOR
+}
+
+model Vendor {
+  id              String       @id @default(uuid()) @db.Uuid
+  businessName    String       @map("business_name") @db.VarChar(255)
+  businessEmail   String       @unique @map("business_email") @db.VarChar(255)
+  businessPhone   String?      @map("business_phone") @db.VarChar(50)
+  businessLogo    String?      @map("business_logo") @db.Text
+  businessAddress String?      @map("business_address") @db.Text
+  status          VendorStatus @default(PENDING)
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  vendorUsers      VendorUser[]
+  invitations      Invitation[]
+  auditLogs        AuditLog[]
+  customers        Customer[]
+  customerTags     CustomerTag[]
+  customerSegments CustomerSegment[]
+  messageTemplates MessageTemplate[]
+  customerImports  CustomerImport[]
+  messageHistories MessageHistory[]
+  wallets          VendorWallet[]
+  walletTransactions WalletTransaction[]
+  creditPurchases  CreditPurchase[]
+  payments         Payment[]
+  walletAuditLogs  WalletAuditLog[]
+  campaigns        Campaign[]
+  campaignAuditLogs CampaignAuditLog[]
+
+  @@map("vendors")
+}
+
+model User {
+  id              String       @id @default(uuid()) @db.Uuid
+  email           String       @unique @db.VarChar(255)
+  passwordHash    String       @map("password_hash") @db.VarChar(255)
+  fullName        String       @map("full_name") @db.VarChar(255)
+  phone           String?      @db.VarChar(50)
+  avatarUrl       String?      @map("avatar_url") @db.Text
+  isActive        Boolean      @default(true) @map("is_active")
+  isEmailVerified Boolean      @default(false) @map("is_email_verified")
+  lastLoginAt     DateTime?    @map("last_login_at")
+  resetToken      String?      @map("reset_token") @db.VarChar(255)
+  resetExpiresAt  DateTime?    @map("reset_expires_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  vendorUsers     VendorUser[]
+  userRoles       UserRole[]
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+  walletAuditLogs WalletAuditLog[]
+  campaignAuditLogs CampaignAuditLog[]
+  sentInvitations Invitation[] @relation("InvitedByUser")
+
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @unique @db.VarChar(100)
+  displayName     String           @map("display_name") @db.VarChar(100)
+  description     String?          @db.Text
+  isSystem        Boolean          @default(true) @map("is_system")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  invitations     Invitation[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @unique @db.VarChar(100)
+  displayName     String           @map("display_name") @db.VarChar(100)
+  module          String           @db.VarChar(50)
+  description     String?          @db.Text
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  rolePermissions RolePermission[]
+
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid()) @db.Uuid
+  roleId       String     @map("role_id") @db.Uuid
+  permissionId String     @map("permission_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model VendorUser {
+  id                String           @id @default(uuid()) @db.Uuid
+  vendorId          String           @map("vendor_id") @db.Uuid
+  userId            String           @map("user_id") @db.Uuid
+  status            VendorUserStatus @default(ACTIVE)
+  customPermissions Json?            @map("custom_permissions")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+
+  vendor            Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, userId])
+  @@index([vendorId])
+  @@index([userId])
+  @@map("vendor_users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash") @db.VarChar(255)
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model Invitation {
+  id          String           @id @default(uuid()) @db.Uuid
+  vendorId    String           @map("vendor_id") @db.Uuid
+  email       String           @db.VarChar(255)
+  roleId      String           @map("role_id") @db.Uuid
+  invitedById String           @map("invited_by_id") @db.Uuid
+  token       String           @unique @db.VarChar(255)
+  status      InvitationStatus @default(PENDING)
+  permissions Json?
+  expiresAt   DateTime         @map("expires_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  vendor      Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  role        Role             @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  invitedBy   User             @relation("InvitedByUser", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([email])
+  @@index([token])
+  @@map("invitations")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  vendorId   String?  @map("vendor_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(100)
+  entityId   String?  @map("entity_id") @db.VarChar(255)
+  ipAddress  String?  @map("ip_address") @db.VarChar(50)
+  userAgent  String?  @map("user_agent") @db.Text
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  vendor     Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([vendorId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// -------------------------------------------------------------
+// PART 2: CUSTOMER CRM & COMMUNICATION MODELS
+// -------------------------------------------------------------
+
+model Customer {
+  id          String         @id @default(uuid()) @db.Uuid
+  vendorId    String         @map("vendor_id") @db.Uuid
+  fullName    String         @map("full_name") @db.VarChar(255)
+  phone       String?        @db.VarChar(50)
+  email       String?        @db.VarChar(255)
+  gender      Gender?
+  dateOfBirth DateTime?      @map("date_of_birth")
+  city        String?        @db.VarChar(100)
+  state       String?        @db.VarChar(100)
+  source      CustomerSource @default(MANUAL_ENTRY)
+  notes       String?        @db.Text
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  vendor          Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  tagAssignments  CustomerTagAssignment[]
+  consents        CustomerConsent[]
+  messageHistory  MessageHistory[]
+  campaignRecipients CampaignRecipient[]
+
+  @@index([vendorId])
+  @@index([phone])
+  @@index([email])
+  @@index([city])
+  @@map("customers")
+}
+
+model CustomerTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  vendorId  String   @map("vendor_id") @db.Uuid
+  name      String   @db.VarChar(100)
+  color     String?  @default("#7B35E8") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  vendor      Vendor                  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  assignments CustomerTagAssignment[]
+
+  @@unique([vendorId, name])
+  @@index([vendorId])
+  @@map("customer_tags")
+}
+
+model CustomerTagAssignment {
+  id         String   @id @default(uuid()) @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  tagId      String   @map("tag_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  customer Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tag      CustomerTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, tagId])
+  @@index([customerId])
+  @@index([tagId])
+  @@map("customer_tag_assignments")
+}
+
+model CustomerConsent {
+  id               String         @id @default(uuid()) @db.Uuid
+  customerId       String         @map("customer_id") @db.Uuid
+  channel          ConsentChannel
+  status           ConsentStatus  @default(UNKNOWN)
+  source           String?        @db.VarChar(100)
+  consentTimestamp DateTime?      @map("consent_timestamp")
+  optOutTimestamp  DateTime?      @map("opt_out_timestamp")
+  notes            String?        @db.Text
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, channel])
+  @@index([customerId])
+  @@index([channel, status])
+  @@map("customer_consents")
+}
+
+model CustomerSegment {
+  id          String   @id @default(uuid()) @db.Uuid
+  vendorId    String   @map("vendor_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  description String?  @db.Text
+  filters     Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([vendorId])
+  @@map("customer_segments")
+}
+
+model MessageTemplate {
+  id               String             @id @default(uuid()) @db.Uuid
+  vendorId         String?            @map("vendor_id") @db.Uuid
+  channel          TemplateChannel
+  name             String             @db.VarChar(255)
+  category         WhatsAppCategory?
+  language         String?            @default("en") @db.VarChar(10)
+  subject          String?            @db.VarChar(255)
+  content          String             @db.Text
+  plainTextContent String?            @map("plain_text_content") @db.Text
+  metaStatus       MetaApprovalStatus @default(DRAFT) @map("meta_status")
+  variables        Json?
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  vendor Vendor? @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([vendorId])
+  @@index([channel])
+  @@map("message_templates")
+}
+
+model CustomerImport {
+  id            String       @id @default(uuid()) @db.Uuid
+  vendorId      String       @map("vendor_id") @db.Uuid
+  fileName      String       @map("file_name") @db.VarChar(255)
+  totalRows     Int          @default(0) @map("total_rows")
+  successRows   Int          @default(0) @map("success_rows")
+  duplicateRows Int          @default(0) @map("duplicate_rows")
+  invalidRows   Int          @default(0) @map("invalid_rows")
+  status        ImportStatus @default(PENDING)
+  errorReport   Json?        @map("error_report")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@map("customer_imports")
+}
+
+model MessageHistory {
+  id             String         @id @default(uuid()) @db.Uuid
+  vendorId       String         @map("vendor_id") @db.Uuid
+  customerId     String         @map("customer_id") @db.Uuid
+  channel        ConsentChannel
+  campaignName   String?        @map("campaign_name") @db.VarChar(255)
+  messageContent String         @map("message_content") @db.Text
+  status         MessageStatus  @default(SENT)
+  providerId     String?        @map("provider_id") @db.VarChar(255)
+  isDemo         Boolean        @default(false) @map("is_demo")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([customerId])
+  @@index([channel])
+  @@index([createdAt])
+  @@map("message_history")
+}
+
+model CreditPackage {
+  id            String        @id @default(uuid()) @db.Uuid
+  name          String        @db.VarChar(255)
+  channel       WalletChannel
+  credits       Int
+  price         Decimal       @db.Decimal(10, 2)
+  gstPercentage Decimal       @default(18.00) @map("gst_percentage") @db.Decimal(5, 2)
+  finalPrice    Decimal       @map("final_price") @db.Decimal(10, 2)
+  description   String?       @db.Text
+  status        PackageStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  purchases CreditPurchase[]
+
+  @@index([channel, status])
+  @@map("credit_packages")
+}
+
+model VendorWallet {
+  id                String        @id @default(uuid()) @db.Uuid
+  vendorId          String        @map("vendor_id") @db.Uuid
+  channel           WalletChannel
+  availableCredits  Int           @default(0) @map("available_credits")
+  reservedCredits   Int           @default(0) @map("reserved_credits")
+  totalPurchased    Int           @default(0) @map("total_purchased")
+  totalConsumed     Int           @default(0) @map("total_consumed")
+  totalRefunded     Int           @default(0) @map("total_refunded")
+  lastTransactionAt DateTime?     @map("last_transaction_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  vendor       Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+  auditLogs    WalletAuditLog[]
+
+  @@unique([vendorId, channel])
+  @@index([vendorId])
+  @@index([channel])
+  @@map("vendor_wallets")
+}
+
+model WalletTransaction {
+  id             String               @id @default(uuid()) @db.Uuid
+  vendorId       String               @map("vendor_id") @db.Uuid
+  walletId       String               @map("wallet_id") @db.Uuid
+  channel        WalletChannel
+  type           TransactionType
+  direction      TransactionDirection
+  credits        Int
+  balanceBefore  Int                  @map("balance_before")
+  balanceAfter   Int                  @map("balance_after")
+  referenceType  String?              @map("reference_type") @db.VarChar(50)
+  referenceId    String?              @map("reference_id") @db.VarChar(255)
+  description    String               @db.VarChar(500)
+  idempotencyKey String?              @unique @map("idempotency_key") @db.VarChar(255)
+  metadata       Json?
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  vendor Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  wallet VendorWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([walletId])
+  @@index([channel, type])
+  @@index([createdAt])
+  @@map("wallet_transactions")
+}
+
+model CreditPurchase {
+  id             String         @id @default(uuid()) @db.Uuid
+  vendorId       String         @map("vendor_id") @db.Uuid
+  packageId      String?        @map("package_id") @db.Uuid
+  channel        WalletChannel
+  credits        Int
+  basePrice      Decimal        @map("base_price") @db.Decimal(10, 2)
+  gstPercentage  Decimal        @default(18.00) @map("gst_percentage") @db.Decimal(5, 2)
+  gstAmount      Decimal        @map("gst_amount") @db.Decimal(10, 2)
+  totalAmount    Decimal        @map("total_amount") @db.Decimal(10, 2)
+  currency       String         @default("INR") @db.VarChar(10)
+  status         PurchaseStatus @default(PENDING)
+  paymentMethod  String?        @map("payment_method") @db.VarChar(50)
+  idempotencyKey String?        @unique @map("idempotency_key") @db.VarChar(255)
+  notes          String?        @db.Text
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  vendor   Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  package  CreditPackage?  @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  payments Payment[]
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("credit_purchases")
+}
+
+model Payment {
+  id                String          @id @default(uuid()) @db.Uuid
+  vendorId          String          @map("vendor_id") @db.Uuid
+  purchaseId        String          @map("purchase_id") @db.Uuid
+  provider          PaymentProvider @default(RAZORPAY)
+  providerOrderId   String?         @unique @map("provider_order_id") @db.VarChar(255)
+  providerPaymentId String?         @unique @map("provider_payment_id") @db.VarChar(255)
+  providerSignature String?         @map("provider_signature") @db.Text
+  amount            Decimal         @db.Decimal(10, 2)
+  currency          String          @default("INR") @db.VarChar(10)
+  status            PaymentStatus   @default(CREATED)
+  signatureVerified Boolean         @default(false) @map("signature_verified")
+  rawResponse       Json?           @map("raw_response")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  vendor   Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  purchase CreditPurchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([purchaseId])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentWebhookEvent {
+  id          String          @id @default(uuid()) @db.Uuid
+  provider    PaymentProvider
+  eventId     String?         @unique @map("event_id") @db.VarChar(255)
+  eventType   String          @map("event_type") @db.VarChar(100)
+  payload     Json
+  processed   Boolean         @default(false)
+  processedAt DateTime?       @map("processed_at")
+  error       String?         @db.Text
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([provider, eventType])
+  @@index([processed])
+  @@map("payment_webhook_events")
+}
+
+model WalletAuditLog {
+  id            String        @id @default(uuid()) @db.Uuid
+  vendorId      String        @map("vendor_id") @db.Uuid
+  walletId      String        @map("wallet_id") @db.Uuid
+  adminUserId   String        @map("admin_user_id") @db.Uuid
+  channel       WalletChannel
+  action        String        @db.VarChar(50)
+  credits       Int
+  reason        String        @db.Text
+  balanceBefore Int           @map("balance_before")
+  balanceAfter  Int           @map("balance_after")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  vendor    Vendor       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  wallet    VendorWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  adminUser User         @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([adminUserId])
+  @@index([createdAt])
+  @@map("wallet_audit_logs")
+}
+
+// -------------------------------------------------------------
+// PART 4: REAL COMMUNICATION PROVIDERS & CAMPAIGNS
+// -------------------------------------------------------------
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  QUEUED
+  PROCESSING
+  COMPLETED
+  PARTIALLY_COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RecipientStatus {
+  PENDING
+  SUBMITTED
+  ACCEPTED
+  DELIVERED
+  FAILED
+  UNDELIVERED
+  READ
+  EXCLUDED
+}
+
+enum AudienceType {
+  ALL_CUSTOMERS
+  SEGMENT
+  TAGS
+  MANUAL
+}
+
+model Campaign {
+  id                 String          @id @default(uuid()) @db.Uuid
+  vendorId           String          @map("vendor_id") @db.Uuid
+  name               String          @db.VarChar(255)
+  channel            WalletChannel
+  templateId         String?         @map("template_id") @db.Uuid
+  subject            String?         @db.VarChar(255)
+  content            String          @db.Text
+  audienceType       AudienceType    @default(ALL_CUSTOMERS) @map("audience_type")
+  segmentId          String?         @map("segment_id") @db.Uuid
+  audienceFilters    Json?           @map("audience_filters")
+  status             CampaignStatus  @default(DRAFT)
+  scheduledAt        DateTime?       @map("scheduled_at")
+  startedAt          DateTime?       @map("started_at")
+  completedAt        DateTime?       @map("completed_at")
+  totalRecipients    Int             @default(0) @map("total_recipients")
+  eligibleRecipients Int             @default(0) @map("eligible_recipients")
+  excludedRecipients Int             @default(0) @map("excluded_recipients")
+  sentCount          Int             @default(0) @map("sent_count")
+  deliveredCount     Int             @default(0) @map("delivered_count")
+  failedCount        Int             @default(0) @map("failed_count")
+  readCount          Int             @default(0) @map("read_count")
+  estimatedCredits   Int             @default(0) @map("estimated_credits")
+  reservedCredits    Int             @default(0) @map("reserved_credits")
+  consumedCredits    Int             @default(0) @map("consumed_credits")
+  releasedCredits    Int             @default(0) @map("released_credits")
+  isSimulated        Boolean         @default(false) @map("is_simulated")
+  metadata           Json?
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  vendor     Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  template   MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  segment    CustomerSegment? @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+  recipients CampaignRecipient[]
+  auditLogs  CampaignAuditLog[]
+
+  @@index([vendorId])
+  @@index([channel, status])
+  @@index([createdAt])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id                String          @id @default(uuid()) @db.Uuid
+  campaignId        String          @map("campaign_id") @db.Uuid
+  customerId        String?         @map("customer_id") @db.Uuid
+  destination       String          @db.VarChar(255)
+  status            RecipientStatus @default(PENDING)
+  providerMessageId String?         @map("provider_message_id") @db.VarChar(255)
+  estimatedCredits  Int             @default(1) @map("estimated_credits")
+  actualCredits     Int             @default(0) @map("actual_credits")
+  variableValues    Json?           @map("variable_values")
+  renderedContent   String?         @map("rendered_content") @db.Text
+  errorCode         String?         @map("error_code") @db.VarChar(100)
+  errorMessage      String?         @map("error_message") @db.Text
+  submittedAt       DateTime?       @map("submitted_at")
+  deliveredAt       DateTime?       @map("delivered_at")
+  readAt            DateTime?       @map("read_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  campaign Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  providerMessages ProviderMessage[]
+
+  @@index([campaignId])
+  @@index([customerId])
+  @@index([destination])
+  @@index([status])
+  @@index([providerMessageId])
+  @@map("campaign_recipients")
+}
+
+model ProviderConfiguration {
+  id             String        @id @default(uuid()) @db.Uuid
+  channel        WalletChannel @unique
+  providerName   String        @map("provider_name") @db.VarChar(100)
+  credentials    Json
+  isActive       Boolean       @default(true) @map("is_active")
+  isSandbox      Boolean       @default(false) @map("is_sandbox")
+  lastTestedAt   DateTime?     @map("last_tested_at")
+  lastTestStatus String?       @map("last_test_status") @db.VarChar(50)
+  lastTestError  String?       @map("last_test_error") @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@map("provider_configurations")
+}
+
+model ChannelPricing {
+  id                    String        @id @default(uuid()) @db.Uuid
+  channel               WalletChannel @unique
+  sellingCreditsPerUnit Decimal       @default(1.00) @map("selling_credits_per_unit") @db.Decimal(10, 2)
+  estimatedProviderCost Decimal       @default(0.20) @map("estimated_provider_cost") @db.Decimal(10, 4)
+  currency              String        @default("INR") @db.VarChar(10)
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  @@map("channel_pricing")
+}
+
+model SuppressionRecord {
+  id          String        @id @default(uuid()) @db.Uuid
+  vendorId    String?       @map("vendor_id") @db.Uuid
+  channel     WalletChannel
+  destination String        @db.VarChar(255)
+  reason      String        @db.VarChar(100)
+  source      String?       @db.VarChar(100)
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@unique([channel, destination])
+  @@index([channel])
+  @@index([destination])
+  @@map("suppression_records")
+}
+
+model ProviderWebhookEvent {
+  id          String        @id @default(uuid()) @db.Uuid
+  provider    String        @db.VarChar(100)
+  eventId     String?       @unique @map("event_id") @db.VarChar(255)
+  eventType   String        @map("event_type") @db.VarChar(100)
+  payload     Json
+  processed   Boolean       @default(false)
+  processedAt DateTime?     @map("processed_at")
+  error       String?       @db.Text
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([provider, eventType])
+  @@index([processed])
+  @@map("provider_webhook_events")
+}
+
+model ProviderMessage {
+  id                  String          @id @default(uuid()) @db.Uuid
+  campaignRecipientId String          @map("campaign_recipient_id") @db.Uuid
+  provider            String          @db.VarChar(50)
+  providerMessageId   String?         @map("provider_message_id") @db.VarChar(255)
+  providerStatus      String?         @map("provider_status") @db.VarChar(50)
+  internalStatus      RecipientStatus @default(PENDING) @map("internal_status")
+  providerCost        Decimal?        @map("provider_cost") @db.Decimal(10, 4)
+  sentAt              DateTime?       @map("sent_at")
+  deliveredAt         DateTime?       @map("delivered_at")
+  failureReason       String?         @map("failure_reason") @db.Text
+  rawResponse         Json?           @map("raw_response")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  recipient CampaignRecipient @relation(fields: [campaignRecipientId], references: [id], onDelete: Cascade)
+
+  @@index([campaignRecipientId])
+  @@index([providerMessageId])
+  @@map("provider_messages")
+}
+
+model CampaignAuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  campaignId String   @map("campaign_id") @db.Uuid
+  vendorId   String   @map("vendor_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  vendor   Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([vendorId])
+  @@index([createdAt])
+  @@map("campaign_audit_logs")
+}
