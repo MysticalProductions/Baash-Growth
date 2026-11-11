@@ -136,20 +136,24 @@ async function main() {
 
   // 4. Seed Super Admin User
   console.log('Seeding Super Admin user...');
+  const adminEmail = process.env.SUPER_ADMIN_EMAIL || 'admin@baash.in';
+  const adminPassword = process.env.SUPER_ADMIN_PASSWORD || 'BaashAdmin@2026';
+  const adminName = process.env.SUPER_ADMIN_NAME || 'Baash Platform Admin';
+
   const salt = await bcrypt.genSalt(12);
-  const adminPasswordHash = await bcrypt.hash('BaashAdmin@2026', salt);
+  const adminPasswordHash = await bcrypt.hash(adminPassword, salt);
 
   const superAdminUser = await prisma.user.upsert({
-    where: { email: 'admin@baash.in' },
+    where: { email: adminEmail },
     update: {
-      fullName: 'Baash Platform Admin',
+      fullName: adminName,
       passwordHash: adminPasswordHash,
       isActive: true,
       isEmailVerified: true,
     },
     create: {
-      email: 'admin@baash.in',
-      fullName: 'Baash Platform Admin',
+      email: adminEmail,
+      fullName: adminName,
       passwordHash: adminPasswordHash,
       isActive: true,
       isEmailVerified: true,

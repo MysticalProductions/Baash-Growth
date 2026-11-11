@@ -1,13 +1,13 @@
 # Render Blueprint Specification for BAASH GROWTH
-# Automatically provisions PostgreSQL, Redis, and the NestJS Backend API
+# 100% Free Tier (No payment or credit card required on Render)
 services:
   - type: web
     name: baash-backend
     runtime: node
     rootDir: backend
-    plan: starter
+    plan: free
     region: oregon
-    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy && npm run build && npm run seed:prod
     startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
@@ -20,11 +20,6 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: baash-postgres
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: baash-redis
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
@@ -43,16 +38,10 @@ services:
       - key: SUPER_ADMIN_NAME
         value: "Baash Platform Admin"
 
-  - type: redis
-    name: baash-redis
-    region: oregon
-    plan: starter
-    ipAllowList: []
-
 databases:
   - name: baash-postgres
     region: oregon
-    plan: starter
+    plan: free
     databaseName: baash_growth
     user: baash_user
 
